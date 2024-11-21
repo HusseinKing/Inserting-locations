@@ -8,7 +8,7 @@ import os
 
 # Database setup
 Base = declarative_base()
-engine = create_engine('mysql+pymysql://paccy1:PickUp%40250@10.10.70.164/pickup_db_v3')
+engine = create_engine('BD_url')
 Session = sessionmaker(bind=engine)
 session = Session()
 
