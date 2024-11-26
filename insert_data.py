@@ -4,13 +4,13 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, String, ForeignKey, DateTime
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
-import os
 
-# Database setup
+
 Base = declarative_base()
-engine = create_engine('BD_url')
+engine = create_engine('DATABASE URL') # Escape @ with %40 
 Session = sessionmaker(bind=engine)
 session = Session()
+
 
 # Models
 class Province(Base):
@@ -19,6 +19,7 @@ class Province(Base):
     province = Column(String(255), nullable=False, unique=True)
     createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
     updatedAt = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     districts = relationship("District", back_populates="province")
 
 
@@ -29,6 +30,7 @@ class District(Base):
     province_id = Column(String(36), ForeignKey('Provinces.id'), nullable=False)
     createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
     updatedAt = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     province = relationship("Province", back_populates="districts")
     sectors = relationship("Sector", back_populates="district")
 
@@ -40,6 +42,7 @@ class Sector(Base):
     district_id = Column(String(36), ForeignKey('Districts.id'), nullable=False)
     createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
     updatedAt = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     district = relationship("District", back_populates="sectors")
     cells = relationship("Cell", back_populates="sector")
 
@@ -51,6 +54,7 @@ class Cell(Base):
     sector_id = Column(String(36), ForeignKey('Sectors.id'), nullable=False)
     createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
     updatedAt = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     sector = relationship("Sector", back_populates="cells")
     villages = relationship("Village", back_populates="cell")
 
@@ -62,96 +66,99 @@ class Village(Base):
     cell_id = Column(String(36), ForeignKey('Cells.id'), nullable=False)
     createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
     updatedAt = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     cell = relationship("Cell", back_populates="villages")
 
-
-# Progress tracker
-TRACKER_FILE = "progress_tracker.json"
-
-def load_progress():
-    if os.path.exists(TRACKER_FILE):
-        with open(TRACKER_FILE, 'r') as f:
-            return json.load(f)
-    return {"province": None, "district": None, "sector": None, "cell": None, "village": None}
-
-def save_progress(progress):
-    with open(TRACKER_FILE, 'w') as f:
-        json.dump(progress, f)
-
-with open('Desktop/georwanda.json') as f:
+with open('Desktop/georwanda.json') as f: # Adjust location of the json
     data = json.load(f)
 
-def insert_data(data):
-    # Load progress
-    progress = load_progress()
 
+# Find the latest insert
+def find_last_inserted_location():
+    last_village = session.query(Village).order_by(Village.createdAt.desc()).first()
+    if not last_village:
+        return None, None, None, None, None
+    
+    cell = last_village.cell
+    sector = cell.sector
+    district = sector.district
+    province = district.province
+
+    return last_village, cell, sector, district, province
+
+
+# Continue inserting from latest insert onwards
+def insert_data_resuming(data):
+    
+    last_village, last_cell, last_sector, last_district, last_province = find_last_inserted_location()
+    
     for province_name, districts in data.items():
-        if progress["province"] and province_name < progress["province"]:
+        if last_province and province_name != last_province.province:
             continue
-        progress["province"] = province_name
-        save_progress(progress)
-
+        
+        # Check if the province exists or insert it
         province = session.query(Province).filter_by(province=province_name).first()
         if not province:
             province = Province(province=province_name)
             session.add(province)
-            session.flush()
+            session.commit()
             print(f"Inserted Province: {province_name}")
-        
-        for district_name, sectors in districts.items():
-            if progress["district"] and district_name < progress["district"]:
-                continue
-            progress["district"] = district_name
-            save_progress(progress)
+        else:
+            print(f"Province '{province_name}' already exists with ID: {province.id}")
 
+        for district_name, sectors in districts.items():
+            if last_district and district_name != last_district.district:
+                continue
+
+            # Check if the district exists or insert it
             district = session.query(District).filter_by(district=district_name, province_id=province.id).first()
             if not district:
                 district = District(district=district_name, province_id=province.id)
                 session.add(district)
-                session.flush()
+                session.commit()
                 print(f"  Inserted District: {district_name}")
+            else:
+                print(f"  District '{district_name}' already exists with ID: {district.id}")
 
             for sector_name, cells in sectors.items():
-                if progress["sector"] and sector_name < progress["sector"]:
+                if last_sector and sector_name != last_sector.sector:
                     continue
-                progress["sector"] = sector_name
-                save_progress(progress)
 
+                # Check if the sector exists or insert it
                 sector = session.query(Sector).filter_by(sector=sector_name, district_id=district.id).first()
                 if not sector:
                     sector = Sector(sector=sector_name, district_id=district.id)
                     session.add(sector)
-                    session.flush()
                     print(f"    Inserted Sector: {sector_name}")
+                else:
+                    print(f"    Sector '{sector_name}' already exists with ID: {sector.id}")
 
+                # Insert Cells and Villages related to this Sector
                 for cell_name, villages in cells.items():
-                    if progress["cell"] and cell_name < progress["cell"]:
-                        continue
-                    progress["cell"] = cell_name
-                    save_progress(progress)
-
                     cell = session.query(Cell).filter_by(cell=cell_name, sector_id=sector.id).first()
                     if not cell:
                         cell = Cell(cell=cell_name, sector_id=sector.id)
                         session.add(cell)
-                        session.flush()
-                        print(f"      Inserted Cell: {cell_name}")
 
                     for village_name in villages:
-                        if progress["village"] and village_name < progress["village"]:
-                            continue
-                        progress["village"] = village_name
-                        save_progress(progress)
-
                         village = session.query(Village).filter_by(village=village_name, cell_id=cell.id).first()
                         if not village:
                             village = Village(village=village_name, cell_id=cell.id)
                             session.add(village)
-                            print(f"        Inserted Village: {village_name}")
 
-    # Commit all changes
-    session.commit()
-    print("Completed insertion with resume support.")
+                # Commit everything related to the current Sector
+                session.commit()
+                print(f"      Committed all data for Sector: {sector_name}")
 
-insert_data(data)
+                # Clear last inserted markers 
+                last_cell = None
+                last_village = None
+                last_sector = None
+            last_district = None
+        last_province = None
+
+
+
+insert_data_resuming(data)
 session.close()
+print("Yaaay!!!! Script execution completed. PickUp DB is ready to use locations!")
