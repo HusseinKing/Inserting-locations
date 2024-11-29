@@ -69,7 +69,7 @@ class Village(Base):
 
     cell = relationship("Cell", back_populates="villages")
 
-with open('Desktop/georwanda.json') as f: # Adjust location of the json
+with open('Json file URL') as f: # Adjust location of the json
     data = json.load(f)
 
 
