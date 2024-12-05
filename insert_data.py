@@ -87,7 +87,7 @@ def find_last_inserted_location():
     return last_village, cell, sector, district, province
 
 
-# Continue inserting from latest insert onwards
+# Continue inserting from a latest insert onwards
 def insert_data_resuming(data):
     
     last_village, last_cell, last_sector, last_district, last_province = find_last_inserted_location()
