@@ -161,4 +161,4 @@ def insert_data_resuming(data):
 
 insert_data_resuming(data)
 session.close()
-print("Yaaay!!!! Script execution completed. PickUp DB is ready to use locations!")
+print("Yaaay!!! Script execution completed. PickUp DB is ready to use locations!")
