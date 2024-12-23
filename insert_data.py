@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 
 Base = declarative_base()
-engine = create_engine('DATABASE URL') # Escape @ with %40 
+engine = create_engine('DATABASE URL') 
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -69,7 +69,7 @@ class Village(Base):
 
     cell = relationship("Cell", back_populates="villages")
 
-with open('Json file URL') as f: # Adjust location of the json
+with open('Json file URL') as f: 
     data = json.load(f)
 
 
