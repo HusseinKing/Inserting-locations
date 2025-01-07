@@ -12,7 +12,7 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 
-# Models
+# TABLES
 class Province(Base):
     __tablename__ = 'Provinces'
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
